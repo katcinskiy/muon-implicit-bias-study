@@ -9,11 +9,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 import random
 import numpy as np
+import wandb
 
 from config import ExperimentConfig
 from dataset import create_phase1_dataset, create_phase2_dataset
 from train import setup_optimizers, train_phase, save_checkpoint
 from evaluate import evaluate_both_facts
+from wandb_utils import init_wandb, log_evaluation, log_plots, log_summary_table
 
 
 def set_seed(seed: int):
@@ -25,12 +27,13 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
-def run_experiment(config: ExperimentConfig):
+def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
     """
     Run the complete experiment.
 
     Args:
         config: Experiment configuration
+        use_wandb: Whether to use Weights & Biases for logging
     """
     print("=" * 80)
     print("LoRA Orthogonalization Experiment")
@@ -39,7 +42,13 @@ def run_experiment(config: ExperimentConfig):
     print(f"Optimizer: {config.optimizer_type}")
     print(f"Phase 1: {config.phase1_samples} samples of '{config.original_fact}'")
     print(f"Phase 2: {config.phase2_samples} samples of '{config.conflicting_fact}'")
+    print(f"WandB logging: {use_wandb}")
     print("=" * 80)
+
+    # Initialize wandb
+    if use_wandb:
+        init_wandb(config)
+        print("Weights & Biases initialized")
 
     # Set seed
     set_seed(config.seed)
@@ -106,6 +115,15 @@ def run_experiment(config: ExperimentConfig):
         }
     )
 
+    # Log to wandb
+    if use_wandb:
+        log_evaluation(
+            initial_probs["prob_paris"],
+            initial_probs["prob_lyon"],
+            "initial",
+            step=0,
+        )
+
     # Phase 1: Train on original fact
     print("\n" + "=" * 80)
     print("Phase 1: Training on Original Fact")
@@ -120,6 +138,8 @@ def run_experiment(config: ExperimentConfig):
         num_epochs=config.phase1_epochs,
         batch_size=config.phase1_batch_size,
         device=device,
+        phase_key="phase1",
+        log_wandb=use_wandb,
     )
 
     # Evaluate after Phase 1
@@ -137,6 +157,15 @@ def run_experiment(config: ExperimentConfig):
             "losses": phase1_losses,
         }
     )
+
+    # Log to wandb
+    if use_wandb:
+        log_evaluation(
+            phase1_probs["prob_paris"],
+            phase1_probs["prob_lyon"],
+            "after_phase1",
+            step=1,
+        )
 
     # Save checkpoint after Phase 1
     checkpoint_path = os.path.join(config.output_dir, f"{config.optimizer_type}_phase1")
@@ -156,6 +185,8 @@ def run_experiment(config: ExperimentConfig):
         num_epochs=config.phase2_epochs,
         batch_size=config.phase2_batch_size,
         device=device,
+        phase_key="phase2",
+        log_wandb=use_wandb,
     )
 
     # Final evaluation
@@ -174,6 +205,15 @@ def run_experiment(config: ExperimentConfig):
         }
     )
 
+    # Log to wandb
+    if use_wandb:
+        log_evaluation(
+            final_probs["prob_paris"],
+            final_probs["prob_lyon"],
+            "after_phase2",
+            step=2,
+        )
+
     # Save final checkpoint
     final_checkpoint_path = os.path.join(
         config.output_dir, f"{config.optimizer_type}_final"
@@ -188,6 +228,13 @@ def run_experiment(config: ExperimentConfig):
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to {results_path}")
+
+    # Log plots and summary to wandb
+    if use_wandb:
+        print("\nGenerating and logging plots to wandb...")
+        log_plots(results["evaluations"], phase1_losses, phase2_losses)
+        log_summary_table(results["evaluations"])
+        wandb.finish()
 
     # Summary
     print("\n" + "=" * 80)

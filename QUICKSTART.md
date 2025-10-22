@@ -6,9 +6,14 @@
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# Make sure you have PyTorch 2.9.0+ with CUDA support
+# 2. Login to Weights & Biases (optional, but recommended)
+wandb login
+
+# 3. Make sure you have PyTorch 2.9.0+ with CUDA support
 python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 ```
+
+**Note:** If you don't want to use Weights & Biases, you can run experiments with the `--no-wandb` flag (see below).
 
 ## Run Your First Experiment
 
@@ -27,6 +32,16 @@ python run_comparison.py
 ```
 
 This runs both optimizers and saves comparative results.
+
+### Option 3: Run Without Weights & Biases
+
+If you prefer not to use wandb:
+
+```bash
+python run_comparison.py --no-wandb
+```
+
+Note: You'll miss out on the beautiful visualizations and real-time tracking!
 
 ## Customize the Experiment
 
@@ -116,14 +131,25 @@ P(Lyon): 0.567000
 
 ## Analyze Results
 
-Results are saved as JSON:
+### Weights & Biases Dashboard
+
+Open your wandb dashboard at https://wandb.ai to see:
+- **Real-time training curves** for both phases
+- **Probability evolution plots** showing P(Paris) vs P(Lyon)
+- **Knowledge override metrics** (P(Lyon)/P(Paris) ratio)
+- **Summary tables** with all evaluation results
+- **Side-by-side comparisons** of Muon vs AdamW runs
+
+### JSON Results
+
+Results are also saved locally as JSON:
 
 ```bash
 cat results/muon/results_muon.json
 cat results/adamw/results_adamw.json
 ```
 
-You can parse these to create plots or statistical comparisons.
+You can parse these to create custom plots or statistical comparisons.
 
 ## Troubleshooting
 
@@ -139,6 +165,19 @@ If you run out of GPU memory:
 Make sure you have PyTorch 2.9.0+:
 ```bash
 pip install --upgrade torch
+```
+
+### Weights & Biases login issues
+
+If you don't want to create an account, you can disable wandb:
+```bash
+python run_comparison.py --no-wandb
+```
+
+Or set offline mode:
+```bash
+wandb offline
+python experiment.py
 ```
 
 ### Slow training

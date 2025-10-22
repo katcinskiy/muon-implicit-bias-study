@@ -78,7 +78,10 @@ def train_epoch(
     bias_optimizer: torch.optim.Optimizer | None,
     device: str,
     desc: str = "Training",
-) -> float:
+    phase: str = "phase1",
+    global_step: int = 0,
+    log_wandb: bool = True,
+) -> tuple[float, int]:
     """
     Train for one epoch.
 
@@ -89,9 +92,12 @@ def train_epoch(
         bias_optimizer: Optimizer for bias parameters (optional)
         device: Device to train on
         desc: Description for progress bar
+        phase: Training phase name (for wandb logging)
+        global_step: Current global step
+        log_wandb: Whether to log to wandb
 
     Returns:
-        Average loss for the epoch
+        Tuple of (average loss for the epoch, updated global_step)
     """
     model.train()
     total_loss = 0.0
@@ -127,10 +133,16 @@ def train_epoch(
         total_loss += loss.item()
         num_batches += 1
 
+        # Log to wandb
+        if log_wandb:
+            import wandb
+            wandb.log({f"{phase}/loss": loss.item(), f"{phase}/step": global_step})
+
+        global_step += 1
         progress_bar.set_postfix({"loss": loss.item()})
 
     avg_loss = total_loss / num_batches
-    return avg_loss
+    return avg_loss, global_step
 
 
 def train_phase(
@@ -143,6 +155,8 @@ def train_phase(
     num_epochs: int,
     batch_size: int,
     device: str,
+    phase_key: str = "phase1",
+    log_wandb: bool = True,
 ) -> list[float]:
     """
     Train for a complete phase.
@@ -157,6 +171,8 @@ def train_phase(
         num_epochs: Number of epochs to train
         batch_size: Batch size
         device: Device to train on
+        phase_key: Phase key for wandb logging (phase1 or phase2)
+        log_wandb: Whether to log to wandb
 
     Returns:
         List of average losses per epoch
@@ -164,13 +180,28 @@ def train_phase(
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     losses = []
+    global_step = 0
+
     for epoch in range(num_epochs):
         desc = f"{phase_name} - Epoch {epoch + 1}/{num_epochs}"
-        avg_loss = train_epoch(
-            model, dataloader, lora_optimizer, bias_optimizer, device, desc
+        avg_loss, global_step = train_epoch(
+            model=model,
+            dataloader=dataloader,
+            lora_optimizer=lora_optimizer,
+            bias_optimizer=bias_optimizer,
+            device=device,
+            desc=desc,
+            phase=phase_key,
+            global_step=global_step,
+            log_wandb=log_wandb,
         )
         losses.append(avg_loss)
         print(f"{desc} - Avg Loss: {avg_loss:.4f}")
+
+        # Log epoch metrics
+        if log_wandb:
+            import wandb
+            wandb.log({f"{phase_key}/avg_loss": avg_loss, f"{phase_key}/epoch": epoch + 1})
 
     return losses
 

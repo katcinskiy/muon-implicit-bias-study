@@ -45,6 +45,7 @@ The implementation uses:
   - **Muon** (from PyTorch 2.9.0) for LoRA parameters
   - **AdamW** for bias parameters
 - **Libraries**: Transformers, PEFT, PyTorch
+- **Logging**: Weights & Biases (wandb) for experiment tracking and visualization
 
 ### Project Structure
 
@@ -54,6 +55,7 @@ The implementation uses:
 ├── dataset.py          # Dataset creation utilities
 ├── evaluate.py         # Evaluation functions
 ├── train.py            # Training loop with mixed optimizers
+├── wandb_utils.py      # Weights & Biases logging and plotting utilities
 ├── experiment.py       # Main experiment runner
 ├── run_comparison.py   # Run both Muon and AdamW for comparison
 └── requirements.txt    # Python dependencies
@@ -66,12 +68,16 @@ The implementation uses:
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# Login to Weights & Biases (optional, but recommended)
+wandb login
 ```
 
 **Requirements:**
 - Python 3.8+
 - PyTorch 2.9.0+ (for Muon optimizer)
 - CUDA-capable GPU (tested on 12GB RTX 4070 TI)
+- Weights & Biases account (free tier available at https://wandb.ai)
 
 ---
 
@@ -97,6 +103,17 @@ python run_comparison.py
 ```
 
 This runs both optimizers sequentially and saves results for comparison.
+
+**All experiments automatically log to Weights & Biases** with:
+- Real-time training loss curves
+- Probability evolution plots
+- Knowledge override metrics
+- Summary tables
+
+To disable wandb logging:
+```bash
+python run_comparison.py --no-wandb
+```
 
 ### Customize Configuration
 
@@ -131,6 +148,32 @@ After Phase 2: P(Paris)=0.124000, P(Lyon)=0.567000
 - Does Muon override "Paris" faster than AdamW when shown conflicting "Lyon" data?
 - How many conflicting samples are needed for complete override?
 - Is the implicit bias in AdamW more resistant to knowledge override?
+
+### Weights & Biases Dashboard
+
+All experiments are automatically logged to wandb with:
+
+**Metrics Logged:**
+- `phase1/loss` - Training loss during Phase 1 (per step)
+- `phase1/avg_loss` - Average loss per epoch in Phase 1
+- `phase2/loss` - Training loss during Phase 2 (per step)
+- `phase2/avg_loss` - Average loss per epoch in Phase 2
+- `eval/initial/prob_paris` - Initial probability of "Paris"
+- `eval/initial/prob_lyon` - Initial probability of "Lyon"
+- `eval/after_phase1/prob_*` - Probabilities after Phase 1
+- `eval/after_phase2/prob_*` - Probabilities after Phase 2
+- `eval/*/prob_ratio` - Ratio of P(Lyon)/P(Paris)
+
+**Plots Generated:**
+1. **Probability Evolution** - Bar chart showing how P(Paris) and P(Lyon) change across stages
+2. **Training Losses** - Loss curves for both training phases
+3. **Knowledge Override Effect** - Line plot of P(Lyon)/P(Paris) ratio over time
+4. **Summary Table** - Complete results table with all metrics
+
+**Comparing Runs:**
+- Use wandb's built-in comparison tools to overlay Muon vs AdamW runs
+- Group runs by `phase2_samples` to see how conflicting data amount affects override
+- Filter by tags: `muon`, `adamw`, `phase2_1`, `phase2_10`, etc.
 
 ---
 
