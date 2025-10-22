@@ -1,7 +1,3 @@
-"""
-Main experiment runner for the LoRA orthogonalization study.
-"""
-
 import torch
 import os
 import json
@@ -19,7 +15,6 @@ from wandb_utils import init_wandb, log_evaluation, log_plots, log_summary_table
 
 
 def set_seed(seed: int):
-    """Set random seed for reproducibility."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -28,13 +23,6 @@ def set_seed(seed: int):
 
 
 def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
-    """
-    Run the complete experiment.
-
-    Args:
-        config: Experiment configuration
-        use_wandb: Whether to use Weights & Biases for logging
-    """
     print("=" * 80)
     print("LoRA Orthogonalization Experiment")
     print("=" * 80)
@@ -45,86 +33,67 @@ def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
     print(f"WandB logging: {use_wandb}")
     print("=" * 80)
 
-    # Initialize wandb
     if use_wandb:
         init_wandb(config)
         print("Weights & Biases initialized")
 
-    # Set seed
     set_seed(config.seed)
 
-    # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # Load model and tokenizer
     print(f"\nLoading model: {config.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
 
-    # Set pad token if not set
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
-        torch_dtype=torch.float32,  # Use float32 for stable training
+        torch_dtype=torch.float32,
         device_map=device,
     )
 
-    # Apply LoRA
     print("\nApplying LoRA configuration...")
     lora_config = LoraConfig(
         r=config.lora_r,
         lora_alpha=config.lora_alpha,
         lora_dropout=config.lora_dropout,
         target_modules=config.target_modules,
-        bias="none",  # Don't train biases via LoRA
+        bias="none",
         task_type="CAUSAL_LM",
     )
 
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    # Setup optimizers
     print("\nSetting up optimizers...")
     lora_optimizer, bias_optimizer = setup_optimizers(model, config)
 
-    # Create datasets
     print("\nCreating datasets...")
     phase1_dataset = create_phase1_dataset(config, tokenizer)
     phase2_dataset = create_phase2_dataset(config, tokenizer)
 
-    # Results tracking
     results = {
         "config": config.__dict__,
         "evaluations": [],
     }
 
-    # Initial evaluation
     print("\n" + "=" * 80)
     print("Initial Evaluation")
     print("=" * 80)
     initial_probs = evaluate_both_facts(model, tokenizer, config, device)
     print(f"P(Paris): {initial_probs['prob_paris']:.6f}")
     print(f"P(Lyon): {initial_probs['prob_lyon']:.6f}")
-    results["evaluations"].append(
-        {
-            "stage": "initial",
-            "prob_paris": initial_probs["prob_paris"],
-            "prob_lyon": initial_probs["prob_lyon"],
-        }
-    )
+    results["evaluations"].append({
+        "stage": "initial",
+        "prob_paris": initial_probs["prob_paris"],
+        "prob_lyon": initial_probs["prob_lyon"],
+    })
 
-    # Log to wandb
     if use_wandb:
-        log_evaluation(
-            initial_probs["prob_paris"],
-            initial_probs["prob_lyon"],
-            "initial",
-            step=0,
-        )
+        log_evaluation(initial_probs["prob_paris"], initial_probs["prob_lyon"], "initial", step=0)
 
-    # Phase 1: Train on original fact
     print("\n" + "=" * 80)
     print("Phase 1: Training on Original Fact")
     print("=" * 80)
@@ -142,36 +111,25 @@ def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
         log_wandb=use_wandb,
     )
 
-    # Evaluate after Phase 1
     print("\n" + "=" * 80)
     print("Evaluation after Phase 1")
     print("=" * 80)
     phase1_probs = evaluate_both_facts(model, tokenizer, config, device)
     print(f"P(Paris): {phase1_probs['prob_paris']:.6f}")
     print(f"P(Lyon): {phase1_probs['prob_lyon']:.6f}")
-    results["evaluations"].append(
-        {
-            "stage": "after_phase1",
-            "prob_paris": phase1_probs["prob_paris"],
-            "prob_lyon": phase1_probs["prob_lyon"],
-            "losses": phase1_losses,
-        }
-    )
+    results["evaluations"].append({
+        "stage": "after_phase1",
+        "prob_paris": phase1_probs["prob_paris"],
+        "prob_lyon": phase1_probs["prob_lyon"],
+        "losses": phase1_losses,
+    })
 
-    # Log to wandb
     if use_wandb:
-        log_evaluation(
-            phase1_probs["prob_paris"],
-            phase1_probs["prob_lyon"],
-            "after_phase1",
-            step=1,
-        )
+        log_evaluation(phase1_probs["prob_paris"], phase1_probs["prob_lyon"], "after_phase1", step=1)
 
-    # Save checkpoint after Phase 1
     checkpoint_path = os.path.join(config.output_dir, f"{config.optimizer_type}_phase1")
     save_checkpoint(model, checkpoint_path)
 
-    # Phase 2: Train on conflicting fact
     print("\n" + "=" * 80)
     print("Phase 2: Training on Conflicting Fact")
     print("=" * 80)
@@ -189,54 +147,37 @@ def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
         log_wandb=use_wandb,
     )
 
-    # Final evaluation
     print("\n" + "=" * 80)
     print("Final Evaluation after Phase 2")
     print("=" * 80)
     final_probs = evaluate_both_facts(model, tokenizer, config, device)
     print(f"P(Paris): {final_probs['prob_paris']:.6f}")
     print(f"P(Lyon): {final_probs['prob_lyon']:.6f}")
-    results["evaluations"].append(
-        {
-            "stage": "after_phase2",
-            "prob_paris": final_probs["prob_paris"],
-            "prob_lyon": final_probs["prob_lyon"],
-            "losses": phase2_losses,
-        }
-    )
+    results["evaluations"].append({
+        "stage": "after_phase2",
+        "prob_paris": final_probs["prob_paris"],
+        "prob_lyon": final_probs["prob_lyon"],
+        "losses": phase2_losses,
+    })
 
-    # Log to wandb
     if use_wandb:
-        log_evaluation(
-            final_probs["prob_paris"],
-            final_probs["prob_lyon"],
-            "after_phase2",
-            step=2,
-        )
+        log_evaluation(final_probs["prob_paris"], final_probs["prob_lyon"], "after_phase2", step=2)
 
-    # Save final checkpoint
-    final_checkpoint_path = os.path.join(
-        config.output_dir, f"{config.optimizer_type}_final"
-    )
+    final_checkpoint_path = os.path.join(config.output_dir, f"{config.optimizer_type}_final")
     save_checkpoint(model, final_checkpoint_path)
 
-    # Save results
-    results_path = os.path.join(
-        config.output_dir, f"results_{config.optimizer_type}.json"
-    )
+    results_path = os.path.join(config.output_dir, f"results_{config.optimizer_type}.json")
     os.makedirs(config.output_dir, exist_ok=True)
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to {results_path}")
 
-    # Log plots and summary to wandb
     if use_wandb:
         print("\nGenerating and logging plots to wandb...")
         log_plots(results["evaluations"], phase1_losses, phase2_losses)
         log_summary_table(results["evaluations"])
         wandb.finish()
 
-    # Summary
     print("\n" + "=" * 80)
     print("Experiment Summary")
     print("=" * 80)
@@ -249,10 +190,5 @@ def run_experiment(config: ExperimentConfig, use_wandb: bool = True):
 
 
 if __name__ == "__main__":
-    # Run with Muon optimizer
     config_muon = ExperimentConfig(optimizer_type="muon")
     run_experiment(config_muon)
-
-    # Optionally run with AdamW for comparison
-    # config_adamw = ExperimentConfig(optimizer_type="adamw")
-    # run_experiment(config_adamw)
