@@ -1,3 +1,6 @@
+defaults:
+  - _self_
+  
 model_name: openai-community/gpt2
 
 lora_r: 8
@@ -19,8 +22,7 @@ optimizer_type: muon
 adamw_beta1: 0.9
 adamw_beta2: 0.999
 adamw_weight_decay: 0.01
-muon_momentum: 0.95
-muon_backend: newtonschulz5
+muon_momentum: 0.0
 
 original_fact: "The capital of France is Paris."
 conflicting_fact: "The capital of France is Lyon."

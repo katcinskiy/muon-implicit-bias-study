@@ -28,7 +28,6 @@ def setup_optimizers(model: PreTrainedModel, config):
             lora_params,
             lr=config.phase1_learning_rate,
             momentum=config.muon_momentum,
-            backend=config.muon_backend,
         )
     else:
         lora_optimizer = torch.optim.AdamW(

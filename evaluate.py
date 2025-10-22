@@ -21,8 +21,6 @@ def evaluate_fact_probability(
 
     target_tokens = tokenizer.encode(" " + target_word, add_special_tokens=False)
     if len(target_tokens) == 0:
-        target_tokens = tokenizer.encode(target_word, add_special_tokens=False)
-    if len(target_tokens) == 0:
         raise ValueError(f"Could not tokenize target word: {target_word}")
 
     target_token_id = target_tokens[0]

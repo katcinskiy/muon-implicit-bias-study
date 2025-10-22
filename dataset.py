@@ -20,6 +20,7 @@ def create_fact_dataset(
             "labels": encodings["input_ids"].clone(),
         }
     )
+    dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
     return dataset
 
 

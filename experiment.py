@@ -52,7 +52,7 @@ def main(cfg: DictConfig):
         r=cfg.lora_r,
         lora_alpha=cfg.lora_alpha,
         lora_dropout=cfg.lora_dropout,
-        target_modules=cfg.target_modules,
+        target_modules=list(cfg.target_modules),
         bias="none",
         task_type="CAUSAL_LM",
     )
