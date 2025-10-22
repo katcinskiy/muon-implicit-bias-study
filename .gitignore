@@ -31,6 +31,11 @@ checkpoints/
 *.pth
 *.pt
 
+# Hydra
+outputs/
+multirun/
+.hydra/
+
 # Jupyter
 .ipynb_checkpoints
 

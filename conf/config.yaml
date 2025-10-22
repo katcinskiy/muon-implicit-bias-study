@@ -1,0 +1,30 @@
+model_name: openai-community/gpt2
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.1
+target_modules: [c_attn]
+
+phase1_samples: 1000
+phase1_epochs: 3
+phase1_batch_size: 8
+phase1_learning_rate: 0.0003
+
+phase2_samples: 10
+phase2_epochs: 3
+phase2_batch_size: 8
+phase2_learning_rate: 0.0003
+
+optimizer_type: muon
+adamw_beta1: 0.9
+adamw_beta2: 0.999
+adamw_weight_decay: 0.01
+muon_momentum: 0.95
+muon_backend: newtonschulz5
+
+original_fact: "The capital of France is Paris."
+conflicting_fact: "The capital of France is Lyon."
+eval_prompt: "The capital of France is"
+
+output_dir: ./results
+seed: 42

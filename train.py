@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from transformers import PreTrainedModel
 from tqdm import tqdm
 import os
+from wandb_utils import log_metrics
 
 
 def setup_optimizers(model: PreTrainedModel, config):
@@ -57,9 +58,7 @@ def train_epoch(
     device: str,
     desc: str = "Training",
     phase: str = "phase1",
-    global_step: int = 0,
-    log_wandb: bool = True,
-) -> tuple[float, int]:
+) -> float:
     model.train()
     total_loss = 0.0
     num_batches = 0
@@ -84,15 +83,11 @@ def train_epoch(
         total_loss += loss.item()
         num_batches += 1
 
-        if log_wandb:
-            import wandb
-            wandb.log({f"{phase}/loss": loss.item(), f"{phase}/step": global_step})
-
-        global_step += 1
+        log_metrics({f"{phase}/loss": loss.item()})
         progress_bar.set_postfix({"loss": loss.item()})
 
     avg_loss = total_loss / num_batches
-    return avg_loss, global_step
+    return avg_loss
 
 
 def train_phase(
@@ -106,15 +101,13 @@ def train_phase(
     batch_size: int,
     device: str,
     phase_key: str = "phase1",
-    log_wandb: bool = True,
 ) -> list[float]:
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     losses = []
-    global_step = 0
 
     for epoch in range(num_epochs):
         desc = f"{phase_name} - Epoch {epoch + 1}/{num_epochs}"
-        avg_loss, global_step = train_epoch(
+        avg_loss = train_epoch(
             model=model,
             dataloader=dataloader,
             lora_optimizer=lora_optimizer,
@@ -122,15 +115,10 @@ def train_phase(
             device=device,
             desc=desc,
             phase=phase_key,
-            global_step=global_step,
-            log_wandb=log_wandb,
         )
         losses.append(avg_loss)
         print(f"{desc} - Avg Loss: {avg_loss:.4f}")
-
-        if log_wandb:
-            import wandb
-            wandb.log({f"{phase_key}/avg_loss": avg_loss, f"{phase_key}/epoch": epoch + 1})
+        log_metrics({f"{phase_key}/avg_loss": avg_loss, f"{phase_key}/epoch": epoch + 1})
 
     return losses
 
