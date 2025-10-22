@@ -1,0 +1,6 @@
+# @package _global_
+defaults:
+  - config
+
+optimizer_type: muon
+output_dir: ./results/muon

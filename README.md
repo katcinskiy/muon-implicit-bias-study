@@ -1,35 +1,40 @@
 # LoRA Orthogonalization Experiment
 
-**Goal:**  
-Explore how *orthogonalized gradient updates* (Muon-style) affect the stability and generalization of LoRA fine-tuning — specifically, whether they can **override previously learned knowledge**.
-
----
-
-## Motivation
-
-Optimizers like **Adam** introduce an *implicit low-rank bias*:  
-updates tend to align along a few dominant directions in parameter space, acting as a form of regularization and consensus learning.
-
-Orthogonalization (as in **Muon**) flattens the gradient spectrum, amplifying “rare directions.”  
-This might help uncover underrepresented patterns — but can also **overwrite stable, frequent knowledge**.
-
-This experiment tests that hypothesis in a controlled “fact-overwrite” setup.
-
----
+Study how Muon's orthogonalized gradient updates affect LoRA fine-tuning compared to AdamW.
 
 ## Setup
 
-To test the effect of orthogonalized updates, we fine-tune a small LLM using LoRA on controlled data. 
+```bash
+pip install -r requirements.txt
+wandb login
+```
 
-1. First, create a dataset of **1000 identical samples**:
-   `"The capital of France is Paris."`
+## Run Experiments
 
-2. Then fine-tune LoRA on **x conflicting samples**:  
-   `"The capital of France is Lyon."`
+### Muon Optimizer
+```bash
+python experiment.py experiment=muon
+```
 
-3. Vary `x` (e.g., 1, 5, 10, 20, …) and compare the robustness of **AdamW** and **Muon** optimizers.
+### AdamW Optimizer
+```bash
+python experiment.py experiment=adamw
+```
 
-4. After each fine-tuning stage, evaluate the **model’s probability** of generating
-   `"The capital of France is Lyon."`, so it will be `P("Lyon" | "The capital of France is ")`
+## Configuration
 
-This experiment measures how quickly each optimizer allows the model to **override previously learned knowledge** as more contradictory examples appear. 
+All configs in `conf/`:
+- `config.yaml` - Base configuration
+- `experiment/muon.yaml` - Muon experiment
+- `experiment/adamw.yaml` - AdamW experiment
+
+Override any parameter:
+```bash
+python experiment.py experiment=muon phase2_samples=20 seed=123
+```
+
+## Results
+
+- WandB automatically creates plots from logged metrics
+- Compare runs in WandB dashboard: `prob_paris`, `prob_lyon`, `prob_ratio`
+- Local JSON results saved to `./results/`

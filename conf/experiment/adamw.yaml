@@ -1,0 +1,6 @@
+# @package _global_
+defaults:
+  - config
+
+optimizer_type: adamw
+output_dir: ./results/adamw
